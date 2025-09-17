@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Root CA Tracker",
+  "version": "0.5",
+  "description": "Tracks and stores unique root CAs seen during browsing",
+  "permissions": [
+    "webRequest",
+    "webRequestBlocking",
+    "storage"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "action": {
+    "default_title": "Root CA Tracker",
+    "default_popup": "popup.html"
+  }
+}

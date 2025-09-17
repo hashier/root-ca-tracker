@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" xml:lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Root CAs</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 10px;
+            width: 500px;
+        }
+
+        #cert-list {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 5px;
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            font-size: 12px;
+            font-family: monospace;
+            white-space: pre; /* This one causes a will-change warning in firefox */
+        }
+
+        button {
+            margin-right: 5px;
+        }
+
+        .button-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <h3>Seen Root CAs</h3>
+    <div id="cert-list">Loading...</div>
+
+    <div class="button-row">
+        <button id="reset">Reset</button>
+        <button id="copy">Copy</button>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>
