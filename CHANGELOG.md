@@ -2,6 +2,12 @@
 
 Each version is tagged in git (`v0.7` etc.).
 
+## [0.8] - 2026-10-01
+
+### Added
+- Clicking a root expands its full subject, SHA-256 fingerprint, first seen
+  date and recent hosts, with a button to look it up on crt.sh.
+
 ## [0.7] - 2026-10-01
 
 ### Added

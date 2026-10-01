@@ -8,6 +8,10 @@ const CONFIRM_TIMEOUT_MS = 3000;
 // Latest stored data, used by Copy.
 let current = { roots: {}, exceptions: {} };
 
+// Fingerprints of roots whose details are open. Kept here so live
+// re-renders don't collapse them.
+let expanded = new Set();
+
 // --- Formatting (pure) ---
 
 // "CN=ISRG Root X1,O=Internet Security Research Group,C=US" -> "ISRG Root X1".
@@ -21,6 +25,12 @@ const formatDate = ms => (ms ? new Date(ms).toISOString().slice(0, 10) : "?");
 
 // Enough of the fingerprint to tell same-name roots apart.
 const shortFingerprint = fp => (fp ? `${fp.slice(0, 23)}…` : "");
+
+// crt.sh accepts a SHA-256 fingerprint as hex without separators.
+const crtShUrl = fingerprint => `https://crt.sh/?q=${fingerprint.replaceAll(":", "")}`;
+
+const toggled = (set, key) =>
+    set.has(key) ? new Set([...set].filter(k => k !== key)) : new Set([...set, key]);
 
 const byName = ([, a], [, b]) => displayName(a.subject).localeCompare(displayName(b.subject));
 
@@ -37,7 +47,7 @@ const certLine = exception => exception.subject
     ? `cert: ${displayName(exception.subject)} · issued by ${displayName(exception.issuer)}`
     : "certificate details not available";
 
-const exportText =({ roots, exceptions }) => {
+const exportText = ({ roots, exceptions }) => {
     const rootLines = Object.entries(roots).sort(byName).map(([fp, r]) =>
         `${r.isBuiltInRoot === false ? "[NOT BUILT-IN] " : ""}${r.subject}  ${fp}`);
     const exceptionLines = Object.entries(exceptions).map(([host, e]) =>
@@ -58,14 +68,49 @@ const el = (tag, props = {}, ...children) => {
     return node;
 };
 
-const rootItem = ([fingerprint, root]) => el("li", { title: root.subject },
-    el("div", { className: "name", textContent: displayName(root.subject) }),
-    el("div", { className: "meta", textContent: rootMeta(root) }),
+const detail = (label, value, className = "") => el("div", { className: `meta ${className}` },
+    el("span", { className: "label", textContent: `${label}: ` }),
+    el("span", { textContent: value }));
+
+const rootDetails = (fingerprint, root) => el("div", { className: "details" },
+    detail("Subject", root.subject),
+    detail("SHA-256", fingerprint, "fp"),
+    root.firstSeen ? detail("First seen", formatDate(root.firstSeen)) : undefined,
+    root.hosts?.length ? detail("Recent hosts", root.hosts.join(", ")) : undefined,
+    el("button", {
+        textContent: "Look up on crt.sh",
+        onclick: event => {
+            event.stopPropagation();
+            browser.tabs.create({ url: crtShUrl(fingerprint) });
+        },
+    }),
+);
+
+const rootSummary = (fingerprint, root) => [
     root.hosts?.length
         ? el("div", { className: "meta", textContent: `e.g. ${root.hosts.join(", ")}` })
         : undefined,
     el("div", { className: "meta fp", textContent: shortFingerprint(fingerprint) }),
-);
+];
+
+const toggleRoot = fingerprint => {
+    // Selecting text (e.g. to copy the fingerprint) also fires a click.
+    if (window.getSelection().toString()) return;
+    expanded = toggled(expanded, fingerprint);
+    render(current);
+};
+
+const rootItem = ([fingerprint, root]) => {
+    const isOpen = expanded.has(fingerprint);
+    return el("li", { className: "root", onclick: () => toggleRoot(fingerprint) },
+        el("div", {
+            className: "name",
+            textContent: `${isOpen ? "▾" : "▸"} ${displayName(root.subject)}`,
+        }),
+        el("div", { className: "meta", textContent: rootMeta(root) }),
+        ...(isOpen ? [rootDetails(fingerprint, root)] : rootSummary(fingerprint, root)),
+    );
+};
 
 const exceptionItem = ([host, exception]) => el("li", { title: exception.fingerprint ?? "" },
     el("div", { className: "name", textContent: host }),
