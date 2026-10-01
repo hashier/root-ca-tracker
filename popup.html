@@ -51,6 +51,22 @@
         #summary {
             color: var(--muted);
             margin-bottom: 8px;
+            white-space: pre-line;
+        }
+
+        #list-status {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+
+        #list-status.stale #list-age {
+            color: var(--caution-border);
+            font-weight: bold;
         }
 
         #content {
@@ -114,6 +130,22 @@
             font-weight: bold;
         }
 
+        .never-seen {
+            margin-top: 12px;
+        }
+
+        .never-seen summary {
+            font-weight: bold;
+            cursor: pointer;
+            margin-bottom: 4px;
+        }
+
+        .org {
+            font-weight: bold;
+            margin-top: 8px;
+            padding: 0 6px;
+        }
+
         .note {
             color: var(--muted);
             font-size: 11px;
@@ -133,6 +165,10 @@
 <body>
     <h3>Seen Root CAs</h3>
     <div id="summary">Loading...</div>
+    <div id="list-status">
+        <span id="list-age"></span>
+        <button id="update-list">Update list</button>
+    </div>
     <div id="content"></div>
 
     <div class="button-row">

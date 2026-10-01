@@ -2,6 +2,21 @@
 
 Each version is tagged in git (`v0.7` etc.).
 
+## [0.9] - 2026-10-01
+
+### Added
+- Bundled list of Mozilla's website roots (`mozilla-roots.json`, from CCADB),
+  refreshed with `scripts/update-mozilla-roots.js`.
+- "Update list" button downloads the current list from CCADB. The extension
+  makes no network requests on its own; the popup shows the list's age and
+  highlights it after 30 days.
+- Popup shows "Seen Y of Mozilla's X website roots (Z%)".
+- Collapsible "Never seen" list, grouped by organization like Firefox's
+  Certificate Manager, with Firefox's TLS distrust dates.
+- Seen built-in roots missing from the bundled list are marked, which
+  means the list needs a refresh.
+- Copy also exports the never-seen roots.
+
 ## [0.8] - 2026-10-01
 
 ### Added

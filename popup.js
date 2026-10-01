@@ -2,15 +2,25 @@ const summary = document.getElementById("summary");
 const content = document.getElementById("content");
 const copyBtn = document.getElementById("copy");
 const resetBtn = document.getElementById("reset");
+const listStatus = document.getElementById("list-status");
+const listAge = document.getElementById("list-age");
+const updateListBtn = document.getElementById("update-list");
 
 const CONFIRM_TIMEOUT_MS = 3000;
+const STALE_AFTER_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Latest stored data, used by Copy.
-let current = { roots: {}, exceptions: {} };
+// Latest stored data plus the Mozilla list in use (null if none could be
+// loaded), used by Copy and live re-renders.
+let current = { roots: {}, exceptions: {}, mozilla: null };
+
+// The list shipped with the extension, used until "Update list" stores a newer one.
+let bundledMozilla = null;
 
 // Fingerprints of roots whose details are open. Kept here so live
 // re-renders don't collapse them.
 let expanded = new Set();
+let neverSeenOpen = false;
 
 // --- Formatting (pure) ---
 
@@ -34,8 +44,47 @@ const toggled = (set, key) =>
 
 const byName = ([, a], [, b]) => displayName(a.subject).localeCompare(displayName(b.subject));
 
+// Firefox writes "AB:CD:...", CCADB writes "ABCD...".
+const normalizeFingerprint = fp => fp.replaceAll(":", "").toUpperCase();
+
+// The bundled list only covers roots trusted for websites, so a seen
+// built-in root missing from it means the list is outdated.
+const compareWithMozilla = (roots, mozillaRoots) => {
+    const seen = new Set(Object.keys(roots).map(normalizeFingerprint));
+    const neverSeen = mozillaRoots.filter(r => !seen.has(r.sha256));
+    return {
+        total: mozillaRoots.length,
+        seenCount: mozillaRoots.length - neverSeen.length,
+        neverSeen,
+        listed: new Set(mozillaRoots.map(r => r.sha256)),
+    };
+};
+
+// Firefox's Certificate Manager groups roots by organization; the one root
+// without an O= is assumed to be listed under its own name.
+const organizationOf = mozillaRoot => mozillaRoot.organization || mozillaRoot.name;
+
+const ageInDays = (isoDate, now) => Math.floor((now - Date.parse(isoDate)) / DAY_MS);
+
+const ageText = days => (days <= 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`);
+
+// Prefers the downloaded list, unless the bundled one is newer (after an
+// extension update). ISO dates compare correctly as strings.
+const newerList = (bundled, downloaded) =>
+    !downloaded ? bundled
+        : !bundled ? downloaded
+            : downloaded.fetched >= bundled.fetched ? downloaded : bundled;
+
+const percent = (part, whole) => (whole ? Math.round((part / whole) * 100) : 0);
+
+const mozillaRootMeta = r => [
+    r.validTo ? `valid until ${r.validTo}` : undefined,
+    r.distrustTlsAfter ? `Firefox distrusts its TLS certs issued after ${r.distrustTlsAfter}` : undefined,
+].filter(Boolean).join(" · ");
+
 // Entries recorded before these fields existed lack them until seen again.
-const rootMeta = root => [
+const rootMeta = (root, unlisted) => [
+    unlisted ? "not in bundled Mozilla list" : undefined,
     root.requests ? `${root.requests} requests` : undefined,
     root.lastSeen ? `last seen ${formatDate(root.lastSeen)}` : undefined,
     root.validUntil ? `valid until ${formatDate(root.validUntil)}` : undefined,
@@ -47,15 +96,24 @@ const certLine = exception => exception.subject
     ? `cert: ${displayName(exception.subject)} · issued by ${displayName(exception.issuer)}`
     : "certificate details not available";
 
-const exportText = ({ roots, exceptions }) => {
+const exportText = ({ roots, exceptions, mozilla }) => {
     const rootLines = Object.entries(roots).sort(byName).map(([fp, r]) =>
         `${r.isBuiltInRoot === false ? "[NOT BUILT-IN] " : ""}${r.subject}  ${fp}`);
     const exceptionLines = Object.entries(exceptions).map(([host, e]) =>
         `${host}  (${e.reasons.join(", ")})  ${e.subject ?? "-"}`);
+    const mozillaLines = mozilla
+        ? (({ total, seenCount, neverSeen }) => [
+            "",
+            `Never seen, from Mozilla's list fetched ${mozilla.fetched} ` +
+                `(seen ${seenCount} of ${total} website roots):`,
+            ...neverSeen.map(r => `${organizationOf(r)} / ${r.name}  ${r.sha256}`),
+        ])(compareWithMozilla(roots, mozilla.roots))
+        : [];
     return [
         `Root CAs (${rootLines.length}):`, ...rootLines,
         "",
         `Certificate exceptions (${exceptionLines.length}):`, ...exceptionLines,
+        ...mozillaLines,
     ].join("\n");
 };
 
@@ -100,14 +158,14 @@ const toggleRoot = fingerprint => {
     render(current);
 };
 
-const rootItem = ([fingerprint, root]) => {
+const rootItem = ([fingerprint, root], unlisted) => {
     const isOpen = expanded.has(fingerprint);
     return el("li", { className: "root", onclick: () => toggleRoot(fingerprint) },
         el("div", {
             className: "name",
             textContent: `${isOpen ? "▾" : "▸"} ${displayName(root.subject)}`,
         }),
-        el("div", { className: "meta", textContent: rootMeta(root) }),
+        el("div", { className: "meta", textContent: rootMeta(root, unlisted) }),
         ...(isOpen ? [rootDetails(fingerprint, root)] : rootSummary(fingerprint, root)),
     );
 };
@@ -129,35 +187,95 @@ const section = (title, className, note, items) => items.length === 0
         note ? el("p", { className: "note", textContent: note }) : undefined,
         el("ul", {}, ...items));
 
-const render = ({ roots, exceptions }) => {
+const neverSeenItem = mozillaRoot => el("li", { title: mozillaRoot.sha256 },
+    el("div", { textContent: mozillaRoot.name }),
+    el("div", { className: "meta", textContent: mozillaRootMeta(mozillaRoot) }),
+);
+
+const neverSeenSection = (neverSeen, fetched) => neverSeen.length === 0
+    ? undefined
+    : el("details", {
+        className: "never-seen",
+        open: neverSeenOpen,
+        ontoggle: event => neverSeenOpen = event.target.open,
+    },
+        el("summary", { textContent: `Never seen (${neverSeen.length})` }),
+        el("p", {
+            className: "note",
+            textContent: `Website roots from Mozilla's list (CCADB, fetched ${fetched}) ` +
+                "that no site used yet. Grouped like Firefox's Certificate Manager.",
+        }),
+        ...Object.entries(Object.groupBy(neverSeen, organizationOf))
+            .sort(([a], [b]) => a.localeCompare(b))
+            .flatMap(([organization, group]) => [
+                el("div", { className: "org", textContent: `${organization} (${group.length})` }),
+                el("ul", {}, ...group.map(neverSeenItem)),
+            ]),
+    );
+
+const summaryText = (entries, notBuiltIn, exceptionEntries, comparison) => {
+    if (entries.length === 0 && exceptionEntries.length === 0) return "No root CAs stored yet.";
+    const counts = `${entries.length} roots seen · ${notBuiltIn.length} not built in · ` +
+        `${exceptionEntries.length} certificate exceptions`;
+    if (!comparison) return counts;
+    const { seenCount, total } = comparison;
+    return `Seen ${seenCount} of Mozilla's ${total} website roots ` +
+        `(${percent(seenCount, total)}%)\n${counts}`;
+};
+
+const renderListStatus = mozilla => {
+    if (!mozilla) {
+        listAge.textContent = "Mozilla root list not available";
+        listStatus.classList.remove("stale");
+        return;
+    }
+    const days = ageInDays(mozilla.fetched, Date.now());
+    listAge.textContent = `Mozilla list from ${mozilla.fetched} (${ageText(days)})`;
+    listStatus.classList.toggle("stale", days > STALE_AFTER_DAYS);
+};
+
+const render = ({ roots, exceptions, mozilla }) => {
     const entries = Object.entries(roots).sort(byName);
     const notBuiltIn = entries.filter(([, r]) => r.isBuiltInRoot === false);
     const builtIn = entries.filter(([, r]) => r.isBuiltInRoot !== false);
     const exceptionEntries = Object.entries(exceptions)
         .sort(([, a], [, b]) => b.lastSeen - a.lastSeen);
+    const comparison = mozilla ? compareWithMozilla(roots, mozilla.roots) : undefined;
+    const isUnlisted = ([fingerprint]) =>
+        comparison !== undefined && !comparison.listed.has(normalizeFingerprint(fingerprint));
 
-    summary.textContent = entries.length === 0 && exceptionEntries.length === 0
-        ? "No root CAs stored yet."
-        : `${entries.length} roots seen · ${notBuiltIn.length} not built in · ` +
-          `${exceptionEntries.length} certificate exceptions`;
+    summary.textContent = summaryText(entries, notBuiltIn, exceptionEntries, comparison);
+    renderListStatus(mozilla);
 
     content.replaceChildren(...[
         section("Not built-in roots", "warn",
             "Installed by you or by software (corporate proxy, antivirus, dev tools). " +
             "Can mean your HTTPS traffic is being inspected.",
-            notBuiltIn.map(rootItem)),
+            notBuiltIn.map(entry => rootItem(entry, false))),
         section("Certificate exceptions", "caution",
             "Sites that only load because an exception was accepted. " +
             "All exceptions: Settings → Certificates → View Certificates → Servers.",
             exceptionEntries.map(exceptionItem)),
-        section("Built-in roots", "", undefined, builtIn.map(rootItem)),
+        section("Built-in roots", "", undefined,
+            builtIn.map(entry => rootItem(entry, isUnlisted(entry)))),
+        comparison ? neverSeenSection(comparison.neverSeen, mozilla.fetched) : undefined,
     ].filter(Boolean));
 };
 
-const load = ({ roots, exceptions }) => {
-    current = { roots: roots ?? {}, exceptions: exceptions ?? {} };
+const load = changes => {
+    current = { ...current, ...changes };
     render(current);
 };
+
+// Bundled with the extension; a missing or broken file only hides the
+// Mozilla comparison until the list is updated.
+const loadBundledMozillaRoots = () =>
+    fetch(browser.runtime.getURL("mozilla-roots.json"))
+        .then(response => response.json())
+        .catch(err => {
+            console.error("Loading mozilla-roots.json failed:", err);
+            return null;
+        });
 
 // Shows a temporary label on a button, then restores the original one.
 const flash = (button, label) => {
@@ -169,15 +287,40 @@ const flash = (button, label) => {
 
 // --- Wiring ---
 
-browser.storage.local.get(["roots", "exceptions"]).then(load);
+Promise.all([
+    browser.storage.local.get(["roots", "exceptions", "mozillaRoots"]),
+    loadBundledMozillaRoots(),
+]).then(([{ roots, exceptions, mozillaRoots }, bundled]) => {
+    bundledMozilla = bundled;
+    load({
+        roots: roots ?? {},
+        exceptions: exceptions ?? {},
+        mozilla: newerList(bundled, mozillaRoots),
+    });
+});
 
 // Keep the popup live while browsing in the background.
 browser.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !(changes.roots || changes.exceptions)) return;
+    if (area !== "local" || !(changes.roots || changes.exceptions || changes.mozillaRoots)) return;
     load({
-        roots: changes.roots ? changes.roots.newValue : current.roots,
-        exceptions: changes.exceptions ? changes.exceptions.newValue : current.exceptions,
+        ...(changes.roots ? { roots: changes.roots.newValue ?? {} } : {}),
+        ...(changes.exceptions ? { exceptions: changes.exceptions.newValue ?? {} } : {}),
+        ...(changes.mozillaRoots
+            ? { mozilla: newerList(bundledMozilla, changes.mozillaRoots.newValue) }
+            : {}),
     });
+});
+
+// The background does the download, so it finishes even if the popup closes.
+// The new list arrives through storage.onChanged above.
+updateListBtn.addEventListener("click", async () => {
+    updateListBtn.disabled = true;
+    updateListBtn.textContent = "Updating…";
+    const result = await browser.runtime.sendMessage("updateMozillaRoots");
+    updateListBtn.disabled = false;
+    updateListBtn.textContent = "Update list";
+    flash(updateListBtn, result?.ok ? `Updated: ${result.count} roots` : "Update failed");
+    if (!result?.ok) listAge.title = result?.error ?? "";
 });
 
 copyBtn.addEventListener("click", async () => {

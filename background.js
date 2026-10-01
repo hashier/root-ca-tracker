@@ -10,6 +10,10 @@
 //   Hosts whose certificate Firefox flagged (untrusted, wrong name, expired)
 //   but which loaded anyway, so a certificate exception must exist for them.
 //
+// mozillaRoots: { source, fetched, roots }
+//   Mozilla's website roots from CCADB, only written when the user clicks
+//   "Update list". Until then the popup uses the bundled mozilla-roots.json.
+//
 // The pre-fingerprint "rootCAs" key (issuer names only) is left untouched.
 const MAX_HOSTS = 5;
 
@@ -123,9 +127,23 @@ async function printRoots() {
     subjects.forEach((subject, i) => console.log(`${i + 1}. ${subject}`));
 }
 
+// The only network request the extension makes itself, and only on request.
+// fetchMozillaRoots comes from ccadb.js, loaded before this file.
+async function updateMozillaRoots() {
+    try {
+        const list = await fetchMozillaRoots();
+        await browser.storage.local.set({ mozillaRoots: list });
+        return { ok: true, count: list.roots.length };
+    } catch (err) {
+        console.error("Error: updating Mozilla root list failed:", err);
+        return { ok: false, error: err.message };
+    }
+}
+
 const messageHandlers = {
     printRootCAs: printRoots,
     resetRootCAs: resetAll,
+    updateMozillaRoots,
 };
 
 browser.runtime.onMessage.addListener(message => messageHandlers[message]?.());
@@ -135,6 +153,8 @@ browser.runtime.onMessage.addListener(message => messageHandlers[message]?.());
 // security info is read; recording happens without holding up the request.
 browser.webRequest.onHeadersReceived.addListener(
     async details => {
+        // Our own CCADB download isn't browsing and shouldn't count as a sighting.
+        if (details.originUrl?.startsWith(browser.runtime.getURL(""))) return;
         try {
             const info = await browser.webRequest.getSecurityInfo(details.requestId, {
                 certificateChain: true,
