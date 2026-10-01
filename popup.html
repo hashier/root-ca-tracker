@@ -5,26 +5,98 @@
     <meta charset="utf-8">
     <title>Root CAs</title>
     <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #fff;
+            --fg: #1b1b1b;
+            --muted: #666;
+            --border: #ccc;
+            --warn-bg: #fdecea;
+            --warn-border: #d93025;
+            --caution-bg: #fff4e5;
+            --caution-border: #e8a33d;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #2b2a33;
+                --fg: #fbfbfe;
+                --muted: #aaa;
+                --border: #555;
+                --warn-bg: #4a1f1c;
+                --warn-border: #f28b82;
+                --caution-bg: #4a3816;
+                --caution-border: #fdd663;
+            }
+        }
+
         body {
             font-family: sans-serif;
+            font-size: 13px;
             padding: 10px;
-            width: 500px;
+            width: 520px;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
         }
 
-        #cert-list {
-            max-height: 250px;
+        h3 {
+            margin: 0 0 4px;
+        }
+
+        h4 {
+            margin: 12px 0 4px;
+        }
+
+        #summary {
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        #content {
+            max-height: 420px;
             overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 5px;
-            margin-bottom: 10px;
-            white-space: pre-wrap;
-            font-size: 12px;
-            font-family: monospace;
-            white-space: pre; /* This one causes a will-change warning in firefox */
         }
 
-        button {
-            margin-right: 5px;
+        ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        li {
+            padding: 5px 6px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .warn li {
+            background: var(--warn-bg);
+            border-left: 3px solid var(--warn-border);
+        }
+
+        .caution li {
+            background: var(--caution-bg);
+            border-left: 3px solid var(--caution-border);
+        }
+
+        .name {
+            font-weight: bold;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 11px;
+            overflow-wrap: anywhere;
+        }
+
+        .fp {
+            font-family: monospace;
+        }
+
+        .note {
+            color: var(--muted);
+            font-size: 11px;
+            margin: 0 0 4px;
         }
 
         .button-row {
@@ -32,13 +104,15 @@
             justify-content: flex-end;
             gap: 5px;
             flex-wrap: wrap;
+            margin-top: 10px;
         }
     </style>
 </head>
 
 <body>
     <h3>Seen Root CAs</h3>
-    <div id="cert-list">Loading...</div>
+    <div id="summary">Loading...</div>
+    <div id="content"></div>
 
     <div class="button-row">
         <button id="reset">Reset</button>
