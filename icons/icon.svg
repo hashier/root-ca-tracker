@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Shield: trust. Solid fill so it reads on light and dark toolbars. -->
+  <path d="M32 3 L57 11 V30 C57 45 47 55 32 61 C17 55 7 45 7 30 V11 Z" fill="#14b8a6"/>
+  <!-- Tree with spreading roots: root CAs. -->
+  <g fill="#fff">
+    <circle cx="24" cy="21" r="7"/>
+    <circle cx="40" cy="21" r="7"/>
+    <circle cx="32" cy="15" r="8"/>
+    <rect x="25" y="18" width="14" height="9"/>
+    <path d="M29 25 H35 L34.5 35 H29.5 Z"/>
+  </g>
+  <g stroke="#fff" stroke-width="4" stroke-linecap="round" fill="none">
+    <path d="M32 34 C30 40 25 43 19 45"/>
+    <path d="M32 34 C34 40 39 43 45 45"/>
+    <path d="M32 34 V50"/>
+  </g>
+</svg>

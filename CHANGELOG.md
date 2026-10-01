@@ -2,6 +2,11 @@
 
 Each version is tagged in git (`v0.7` etc.).
 
+## [0.10] - 2026-10-01
+
+### Added
+- Extension and toolbar icon: a shield with a rooted tree.
+
 ## [0.9] - 2026-10-01
 
 ### Added

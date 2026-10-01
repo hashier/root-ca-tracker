@@ -1,19 +1,29 @@
 {
   "manifest_version": 3,
   "name": "Root CA Tracker",
-  "version": "0.9",
+  "version": "0.10",
   "description": "Tracks and stores unique root CAs seen during browsing",
+  "icons": {
+    "48": "icons/icon.svg",
+    "96": "icons/icon.svg"
+  },
   "permissions": [
     "webRequest",
     "webRequestBlocking",
     "storage"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
-    "scripts": ["ccadb.js", "background.js"]
+    "scripts": [
+      "ccadb.js",
+      "background.js"
+    ]
   },
   "action": {
     "default_title": "Root CA Tracker",
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon.svg"
   }
 }
