@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Root CA Tracker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shows which root certificate authorities your HTTPS connections actually use, highlights roots that aren't built in (possible traffic inspection), and compares them with Mozilla's root list.",
   "homepage_url": "https://github.com/hashier/root-ca-tracker",
   "icons": {

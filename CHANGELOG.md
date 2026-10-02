@@ -4,6 +4,8 @@ Each version is tagged in git (`v0.7` etc.).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-02
+
 ### Changed
 - Longer extension description that matches the AMO summary and mentions
   the highlighting of roots that aren't built in.
