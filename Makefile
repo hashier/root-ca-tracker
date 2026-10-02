@@ -7,8 +7,8 @@ DOCKER  := docker run --rm -v "$(CURDIR):/current" --workdir /current $(DOCKER_I
 WEB_EXT := npx --yes web-ext@latest
 
 # Files that don't belong in the AMO package. web-ext skips dotfiles and its
-# own artifacts dir by itself.
-IGNORE  := "scripts" "scripts/**" "store" "store/**" Makefile README.md CHANGELOG.md
+# own artifacts dir by itself, but not git-ignored files like local.mk.
+IGNORE  := "scripts" "scripts/**" "store" "store/**" Makefile README.md CHANGELOG.md local.mk
 
 VERSION := $(shell sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' manifest.json)
 ZIP     := web-ext-artifacts/root_ca_tracker-$(VERSION).zip
@@ -18,6 +18,8 @@ ZIP     := web-ext-artifacts/root_ca_tracker-$(VERSION).zip
 ## build: syntax check, lint, then package the extension for AMO
 build: check lint
 	$(DOCKER) $(WEB_EXT) build --overwrite-dest --ignore-files $(IGNORE)
+	@# List what ships, so a stray file is caught before upload.
+	unzip -l $(ZIP)
 	@echo "Upload: $(ZIP)"
 
 ## lint: Mozilla's validator, the same checks AMO runs on upload

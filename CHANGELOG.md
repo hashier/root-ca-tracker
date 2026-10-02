@@ -4,6 +4,10 @@ Each version is tagged in git (`v0.7` etc.).
 
 ## [Unreleased]
 
+### Development
+- `make build` no longer packs the git-ignored `local.mk` (1.0.1 and the
+  first 1.1.0 build did), and lists the package contents after building.
+
 ## [1.1.0] - 2026-10-03
 
 ### Added
