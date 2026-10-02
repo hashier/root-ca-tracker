@@ -2,6 +2,31 @@
 
 Each version is tagged in git (`v0.7` etc.).
 
+## [1.0.0] - 2026-10-02
+
+First release on addons.mozilla.org.
+
+### Added
+- Fixed extension ID, data collection declaration ("none") and homepage link,
+  as required for publishing.
+- Banner with an "Allow access" button when access to all websites was
+  turned off in about:addons, since nothing gets recorded without it.
+- MIT license and README.
+
+### Changed
+- Requires Firefox 140 or later (current ESR): the first version that
+  supports the data collection declaration, and late enough that host
+  permissions are granted at install time (127+).
+
+### Fixed
+- The popup could show outdated data when a background write landed while it
+  was opening.
+- An "Update list" error stayed in the tooltip after a later successful update.
+- The "Update list" button could stay stuck on "Updating…" if messaging the
+  background failed, or reset its label too early after a quick retry.
+- Roots missing from the Mozilla list were always said to be missing from the
+  bundled list, even when a downloaded list was in use.
+
 ## [0.10] - 2026-10-01
 
 ### Added

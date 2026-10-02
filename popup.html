@@ -48,6 +48,13 @@
             margin: 12px 0 4px;
         }
 
+        #permission-banner {
+            background: var(--warn-bg);
+            border-left: 3px solid var(--warn-border);
+            padding: 6px;
+            margin-bottom: 8px;
+        }
+
         #summary {
             color: var(--muted);
             margin-bottom: 8px;
@@ -164,6 +171,10 @@
 
 <body>
     <h3>Seen Root CAs</h3>
+    <div id="permission-banner" hidden>
+        Access to all websites is turned off, so no connections are recorded.
+        <button id="grant-access">Allow access</button>
+    </div>
     <div id="summary">Loading...</div>
     <div id="list-status">
         <span id="list-age"></span>

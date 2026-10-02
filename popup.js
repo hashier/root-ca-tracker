@@ -5,6 +5,8 @@ const resetBtn = document.getElementById("reset");
 const listStatus = document.getElementById("list-status");
 const listAge = document.getElementById("list-age");
 const updateListBtn = document.getElementById("update-list");
+const permissionBanner = document.getElementById("permission-banner");
+const grantBtn = document.getElementById("grant-access");
 
 const CONFIRM_TIMEOUT_MS = 3000;
 const STALE_AFTER_DAYS = 30;
@@ -13,9 +15,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Latest stored data plus the Mozilla list in use (null if none could be
 // loaded), used by Copy and live re-renders.
 let current = { roots: {}, exceptions: {}, mozilla: null };
-
-// The list shipped with the extension, used until "Update list" stores a newer one.
-let bundledMozilla = null;
 
 // Fingerprints of roots whose details are open. Kept here so live
 // re-renders don't collapse them.
@@ -47,8 +46,8 @@ const byName = ([, a], [, b]) => displayName(a.subject).localeCompare(displayNam
 // Firefox writes "AB:CD:...", CCADB writes "ABCD...".
 const normalizeFingerprint = fp => fp.replaceAll(":", "").toUpperCase();
 
-// The bundled list only covers roots trusted for websites, so a seen
-// built-in root missing from it means the list is outdated.
+// The list only covers roots trusted for websites, so a seen built-in root
+// missing from it usually means the list is outdated.
 const compareWithMozilla = (roots, mozillaRoots) => {
     const seen = new Set(Object.keys(roots).map(normalizeFingerprint));
     const neverSeen = mozillaRoots.filter(r => !seen.has(r.sha256));
@@ -83,8 +82,8 @@ const mozillaRootMeta = r => [
 ].filter(Boolean).join(" · ");
 
 // Entries recorded before these fields existed lack them until seen again.
-const rootMeta = (root, unlisted) => [
-    unlisted ? "not in bundled Mozilla list" : undefined,
+const rootMeta = (root, unlistedIn) => [
+    unlistedIn ? `not in Mozilla's list from ${unlistedIn}` : undefined,
     root.requests ? `${root.requests} requests` : undefined,
     root.lastSeen ? `last seen ${formatDate(root.lastSeen)}` : undefined,
     root.validUntil ? `valid until ${formatDate(root.validUntil)}` : undefined,
@@ -158,14 +157,14 @@ const toggleRoot = fingerprint => {
     render(current);
 };
 
-const rootItem = ([fingerprint, root], unlisted) => {
+const rootItem = ([fingerprint, root], unlistedIn) => {
     const isOpen = expanded.has(fingerprint);
     return el("li", { className: "root", onclick: () => toggleRoot(fingerprint) },
         el("div", {
             className: "name",
             textContent: `${isOpen ? "▾" : "▸"} ${displayName(root.subject)}`,
         }),
-        el("div", { className: "meta", textContent: rootMeta(root, unlisted) }),
+        el("div", { className: "meta", textContent: rootMeta(root, unlistedIn) }),
         ...(isOpen ? [rootDetails(fingerprint, root)] : rootSummary(fingerprint, root)),
     );
 };
@@ -241,8 +240,11 @@ const render = ({ roots, exceptions, mozilla }) => {
     const exceptionEntries = Object.entries(exceptions)
         .sort(([, a], [, b]) => b.lastSeen - a.lastSeen);
     const comparison = mozilla ? compareWithMozilla(roots, mozilla.roots) : undefined;
-    const isUnlisted = ([fingerprint]) =>
-        comparison !== undefined && !comparison.listed.has(normalizeFingerprint(fingerprint));
+    // The list's date, if a seen built-in root is missing from it.
+    const unlistedIn = ([fingerprint]) =>
+        comparison !== undefined && !comparison.listed.has(normalizeFingerprint(fingerprint))
+            ? mozilla.fetched
+            : undefined;
 
     summary.textContent = summaryText(entries, notBuiltIn, exceptionEntries, comparison);
     renderListStatus(mozilla);
@@ -251,13 +253,13 @@ const render = ({ roots, exceptions, mozilla }) => {
         section("Not built-in roots", "warn",
             "Installed by you or by software (corporate proxy, antivirus, dev tools). " +
             "Can mean your HTTPS traffic is being inspected.",
-            notBuiltIn.map(entry => rootItem(entry, false))),
+            notBuiltIn.map(entry => rootItem(entry, undefined))),
         section("Certificate exceptions", "caution",
             "Sites that only load because an exception was accepted. " +
             "All exceptions: Settings → Certificates → View Certificates → Servers.",
             exceptionEntries.map(exceptionItem)),
         section("Built-in roots", "", undefined,
-            builtIn.map(entry => rootItem(entry, isUnlisted(entry)))),
+            builtIn.map(entry => rootItem(entry, unlistedIn(entry)))),
         comparison ? neverSeenSection(comparison.neverSeen, mozilla.fetched) : undefined,
     ].filter(Boolean));
 };
@@ -268,59 +270,72 @@ const load = changes => {
 };
 
 // Bundled with the extension; a missing or broken file only hides the
-// Mozilla comparison until the list is updated.
-const loadBundledMozillaRoots = () =>
-    fetch(browser.runtime.getURL("mozilla-roots.json"))
-        .then(response => response.json())
-        .catch(err => {
-            console.error("Loading mozilla-roots.json failed:", err);
-            return null;
-        });
+// Mozilla comparison until the list is updated. Loaded once per popup.
+const bundledMozillaRoots = fetch(browser.runtime.getURL("mozilla-roots.json"))
+    .then(response => response.json())
+    .catch(err => {
+        console.error("Loading mozilla-roots.json failed:", err);
+        return null;
+    });
 
-// Shows a temporary label on a button, then restores the original one.
+// Always reads the full current state, so a storage change arriving while
+// the first read is still pending can't be overwritten by older data.
+const refresh = () => Promise.all([
+    browser.storage.local.get(["roots", "exceptions", "mozillaRoots"]),
+    bundledMozillaRoots,
+]).then(([{ roots, exceptions, mozillaRoots }, bundled]) => load({
+    roots: roots ?? {},
+    exceptions: exceptions ?? {},
+    mozilla: newerList(bundled, mozillaRoots),
+}));
+
+// Shows a temporary label on a button, then restores the original one. A new
+// flash cancels the previous one's restore.
+const flashTimers = new Map();
 const flash = (button, label) => {
+    clearTimeout(flashTimers.get(button));
     const original = button.dataset.label ?? button.textContent;
     button.dataset.label = original;
     button.textContent = label;
-    setTimeout(() => button.textContent = original, 1500);
+    flashTimers.set(button, setTimeout(() => button.textContent = original, 1500));
+};
+
+// Firefox lets users withdraw the "all websites" access in about:addons.
+// Without it no request is visible and nothing gets recorded.
+const ALL_SITES = { origins: ["<all_urls>"] };
+const checkPermission = async () => {
+    permissionBanner.hidden = await browser.permissions.contains(ALL_SITES);
 };
 
 // --- Wiring ---
 
-Promise.all([
-    browser.storage.local.get(["roots", "exceptions", "mozillaRoots"]),
-    loadBundledMozillaRoots(),
-]).then(([{ roots, exceptions, mozillaRoots }, bundled]) => {
-    bundledMozilla = bundled;
-    load({
-        roots: roots ?? {},
-        exceptions: exceptions ?? {},
-        mozilla: newerList(bundled, mozillaRoots),
-    });
-});
+refresh();
+checkPermission();
 
 // Keep the popup live while browsing in the background.
 browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !(changes.roots || changes.exceptions || changes.mozillaRoots)) return;
-    load({
-        ...(changes.roots ? { roots: changes.roots.newValue ?? {} } : {}),
-        ...(changes.exceptions ? { exceptions: changes.exceptions.newValue ?? {} } : {}),
-        ...(changes.mozillaRoots
-            ? { mozilla: newerList(bundledMozilla, changes.mozillaRoots.newValue) }
-            : {}),
-    });
+    refresh();
 });
+
+// permissions.request must run directly in the click handler.
+grantBtn.addEventListener("click", () =>
+    browser.permissions.request(ALL_SITES).then(checkPermission));
 
 // The background does the download, so it finishes even if the popup closes.
 // The new list arrives through storage.onChanged above.
+const requestListUpdate = () =>
+    browser.runtime.sendMessage("updateMozillaRoots")
+        .catch(err => ({ ok: false, error: err.message }));
+
 updateListBtn.addEventListener("click", async () => {
     updateListBtn.disabled = true;
     updateListBtn.textContent = "Updating…";
-    const result = await browser.runtime.sendMessage("updateMozillaRoots");
+    const result = await requestListUpdate();
     updateListBtn.disabled = false;
     updateListBtn.textContent = "Update list";
     flash(updateListBtn, result?.ok ? `Updated: ${result.count} roots` : "Update failed");
-    if (!result?.ok) listAge.title = result?.error ?? "";
+    listAge.title = result?.ok ? "" : result?.error ?? "";
 });
 
 copyBtn.addEventListener("click", async () => {
