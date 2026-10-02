@@ -4,6 +4,10 @@ Each version is tagged in git (`v0.7` etc.).
 
 ## [Unreleased]
 
+### Changed
+- Longer extension description that matches the AMO summary and mentions
+  the highlighting of roots that aren't built in.
+
 ### Development
 - PNG icons in 32, 64 and 128 px in `store/` for the AMO listing, rendered
   from `icons/icon.svg`.
