@@ -1,4 +1,4 @@
-# Root CA Tracker
+# <img src="icons/icon.svg" alt="" width="32" height="32"> Root CA Tracker
 
 A Firefox extension that records which root certificate authorities your
 HTTPS connections actually chain to, and compares them with the roots Mozilla
@@ -6,6 +6,8 @@ ships. Firefox trusts around 120 roots for websites; most people only ever use
 a handful. Knowing which ones is the first step to trimming the rest.
 
 ## What it shows
+
+<img src="store/screenshot-popup.png" alt="The popup listing seen root CAs, a certificate exception and per-root request counts" width="536">
 
 - **Seen roots** with request counts, first/last seen, expiry and recent hosts.
 - **Roots that aren't built into Firefox**, highlighted. These are installed by

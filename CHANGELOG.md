@@ -9,6 +9,7 @@ Each version is tagged in git (`v0.7` etc.).
   the highlighting of roots that aren't built in.
 
 ### Development
+- README shows the icon and a screenshot of the popup.
 - PNG icons in 32, 64 and 128 px in `store/` for the AMO listing, rendered
   from `icons/icon.svg`.
 - `make build`, `make lint`, `make check` and `make roots` run everything in
