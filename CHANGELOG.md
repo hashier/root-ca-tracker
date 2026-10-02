@@ -4,6 +4,12 @@ Each version is tagged in git (`v0.7` etc.).
 
 ## [Unreleased]
 
+### Added
+- Collapsible Stats section at the top of the popup: total requests and
+  since when, how many roots cover 90% and 99% of requests, the share of the
+  top 3 roots, roots under 1%, the share not trusted by default (roots not
+  built in and certificate exceptions), and requests by CA operator.
+
 ## [1.0.1] - 2026-10-02
 
 ### Changed

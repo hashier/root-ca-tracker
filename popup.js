@@ -20,15 +20,16 @@ let current = { roots: {}, exceptions: {}, mozilla: null };
 // re-renders don't collapse them.
 let expanded = new Set();
 let neverSeenOpen = false;
+let statsOpen = false;
 
 // --- Formatting (pure) ---
 
 // "CN=ISRG Root X1,O=Internet Security Research Group,C=US" -> "ISRG Root X1".
 // Falls back to O=, then the full subject, for roots without a CN.
-const displayName = subject => {
-    const field = key => subject?.match(new RegExp(`(?:^|,)${key}=([^,]+)`))?.[1];
-    return field("CN") ?? field("O") ?? subject ?? "(unknown)";
-};
+const subjectField = (subject, key) => subject?.match(new RegExp(`(?:^|,)${key}=([^,]+)`))?.[1];
+
+const displayName = subject =>
+    subjectField(subject, "CN") ?? subjectField(subject, "O") ?? subject ?? "(unknown)";
 
 const formatDate = ms => (ms ? new Date(ms).toISOString().slice(0, 10) : "?");
 
@@ -119,6 +120,101 @@ const exportText = ({ roots, exceptions, mozilla }) => {
     ].join("\n");
 };
 
+// --- Stats (pure) ---
+
+const STATS_TOP_ROOTS = 3;
+const STATS_TOP_OPERATORS = 5;
+const SMALL_SHARE = 0.01;
+
+const sum = numbers => numbers.reduce((a, b) => a + b, 0);
+const requestsOf = record => record.requests ?? 0;
+
+// Rounds, but never shows a non-zero share as 0% or a partial one as 100%.
+const percentText = (part, whole) => {
+    const share = whole ? part / whole : 0;
+    if (share > 0 && share < 0.01) return "<1%";
+    if (share < 1 && share > 0.99) return ">99%";
+    return `${Math.round(share * 100)}%`;
+};
+
+const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
+
+// How many of the busiest roots it takes to reach `share` of all requests.
+// `counts` must be sorted, busiest first.
+const rootsToCover = (counts, share) => {
+    const target = sum(counts) * share;
+    const running = counts.map((_, i) => sum(counts.slice(0, i + 1)));
+    return running.findIndex(total => total >= target) + 1;
+};
+
+// The CA operator as Mozilla lists it, else the root's own O= field.
+const operatorOf = ([fingerprint, root], listed) => {
+    const mozillaRoot = listed.get(normalizeFingerprint(fingerprint));
+    return mozillaRoot
+        ? organizationOf(mozillaRoot)
+        : subjectField(root.subject, "O") ?? displayName(root.subject);
+};
+
+// Shares of root requests are relative to requests that reached a root;
+// requests through a certificate exception have none and only count towards
+// the total and the "not trusted by default" share.
+const computeStats = (roots, exceptions, mozillaRoots = []) => {
+    const rootEntries = Object.entries(roots);
+    const counts = rootEntries.map(([, r]) => requestsOf(r)).sort((a, b) => b - a);
+    const rootRequests = sum(counts);
+    if (rootRequests === 0) return undefined;
+
+    const exceptionRequests = sum(Object.values(exceptions).map(requestsOf));
+    const notBuiltInRequests = sum(rootEntries
+        .filter(([, r]) => r.isBuiltInRoot === false)
+        .map(([, r]) => requestsOf(r)));
+    const listed = new Map(mozillaRoots.map(r => [r.sha256, r]));
+    const operators = Object.entries(Object.groupBy(rootEntries, entry => operatorOf(entry, listed)))
+        .map(([name, group]) => ({ name, requests: sum(group.map(([, r]) => requestsOf(r))) }))
+        .sort((a, b) => b.requests - a.requests || a.name.localeCompare(b.name));
+    const firstSeen = [...Object.values(roots), ...Object.values(exceptions)]
+        .map(r => r.firstSeen)
+        .filter(Boolean);
+
+    return {
+        allRequests: rootRequests + exceptionRequests,
+        rootRequests,
+        since: firstSeen.length ? Math.min(...firstSeen) : undefined,
+        rootCount: counts.length,
+        topRequests: sum(counts.slice(0, STATS_TOP_ROOTS)),
+        cover90: rootsToCover(counts, 0.9),
+        cover99: rootsToCover(counts, 0.99),
+        smallRoots: counts.filter(c => c < rootRequests * SMALL_SHARE).length,
+        untrustedRequests: notBuiltInRequests + exceptionRequests,
+        operators,
+    };
+};
+
+const statsLines = s => [
+    `${s.allRequests.toLocaleString()} requests` + (s.since ? ` since ${formatDate(s.since)}` : ""),
+    s.rootCount > STATS_TOP_ROOTS
+        ? `Top ${STATS_TOP_ROOTS} roots: ${percentText(s.topRequests, s.rootRequests)} of requests`
+        : undefined,
+    `90% of requests: ${plural(s.cover90, "root")} · 99%: ${plural(s.cover99, "root")}`,
+    s.smallRoots ? `${plural(s.smallRoots, "root")} under 1% each` : undefined,
+    `Not trusted by default: ${percentText(s.untrustedRequests, s.allRequests)}` +
+        " (roots not built in, certificate exceptions)",
+].filter(Boolean);
+
+// The busiest operators, with the rest folded into one line. A single
+// leftover operator is shown by name, since folding it saves no space.
+const operatorLines = ({ operators, rootRequests }) => {
+    const shown = operators.length > STATS_TOP_OPERATORS + 1 ? STATS_TOP_OPERATORS : operators.length;
+    const rest = operators.slice(shown);
+    return [
+        ...operators.slice(0, shown)
+            .map(o => `${percentText(o.requests, rootRequests)} ${o.name}`),
+        rest.length
+            ? `${percentText(sum(rest.map(o => o.requests)), rootRequests)} ${plural(rest.length, "other")}`
+            : undefined,
+    ].filter(Boolean);
+};
+
 // --- DOM ---
 
 // Server-supplied strings (subjects, hosts) only ever go into textContent.
@@ -194,6 +290,19 @@ const neverSeenItem = mozillaRoot => el("li", { title: mozillaRoot.sha256 },
     el("div", { className: "meta", textContent: mozillaRootMeta(mozillaRoot) }),
 );
 
+const statsSection = stats => stats === undefined
+    ? undefined
+    : el("details", {
+        className: "stats",
+        open: statsOpen,
+        ontoggle: event => statsOpen = event.target.open,
+    },
+        el("summary", { textContent: "Stats" }),
+        ...statsLines(stats).map(line => el("div", { textContent: line })),
+        el("div", { className: "label stats-heading", textContent: "By CA operator" }),
+        ...operatorLines(stats).map(line => el("div", { textContent: line })),
+    );
+
 const neverSeenSection = (neverSeen, fetched) => neverSeen.length === 0
     ? undefined
     : el("details", {
@@ -253,6 +362,7 @@ const render = ({ roots, exceptions, mozilla }) => {
     renderListStatus(mozilla);
 
     content.replaceChildren(...[
+        statsSection(computeStats(roots, exceptions, mozilla?.roots)),
         section("Not built-in roots", "warn",
             "Installed by you or by software (corporate proxy, antivirus, dev tools). " +
             "Can mean your HTTPS traffic is being inspected.",
