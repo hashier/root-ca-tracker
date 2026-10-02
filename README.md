@@ -34,18 +34,16 @@ Firefox-only APIs (`webRequest.getSecurityInfo`), so there is no Chrome version.
 
 ## Development
 
-Refresh the bundled root list:
+All targets run in Docker, so nothing needs to be installed on the host:
 
 ```sh
-node scripts/update-mozilla-roots.js
+make build   # syntax check, lint, then package web-ext-artifacts/root_ca_tracker-<version>.zip
+make lint    # Mozilla's validator, the same checks AMO runs on upload
+make roots   # refresh the bundled mozilla-roots.json from CCADB
 ```
 
-Lint and build the package:
-
-```sh
-npx web-ext lint --ignore-files "scripts/**"
-npx web-ext build --ignore-files "scripts/**" README.md CHANGELOG.md
-```
+Targets use the `node:22` image by default. To use another image, create a
+`local.mk` with `DOCKER_IMAGE := <image>` (it's git-ignored).
 
 ## License
 

@@ -2,6 +2,14 @@
 
 Each version is tagged in git (`v0.7` etc.).
 
+## [Unreleased]
+
+### Development
+- `make build`, `make lint`, `make check` and `make roots` run everything in
+  Docker. The image defaults to `node:22` and can be overridden in a
+  git-ignored `local.mk`.
+- The package no longer contains an empty `scripts/` folder.
+
 ## [1.0.0] - 2026-10-02
 
 First release on addons.mozilla.org.
