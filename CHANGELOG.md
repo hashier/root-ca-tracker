@@ -7,6 +7,11 @@ Each version is tagged in git (`v0.7` etc.).
 ### Changed
 - Longer extension description that matches the AMO summary and mentions
   the highlighting of roots that aren't built in.
+- The popup grows to 90% of the window height (Firefox allows at most
+  600 px), and the list fills the extra space.
+- Reset and Copy moved up next to Update list, so the list no longer loses
+  room to a separate button bar. Reset is now "Reset seen" so it can't be
+  mistaken for resetting the downloaded Mozilla list.
 
 ### Development
 - README shows the icon and a screenshot of the popup.

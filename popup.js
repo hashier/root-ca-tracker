@@ -307,8 +307,19 @@ const checkPermission = async () => {
     permissionBanner.hidden = await browser.permissions.contains(ALL_SITES);
 };
 
+// Use up to 90% of the browser window's height. Firefox clips popups at
+// 600px, so the CSS max-height stays the upper bound. browser.windows
+// doesn't exist on Android, where the popup is a full page anyway.
+const POPUP_HEIGHT_SHARE = 0.9;
+const fitHeight = async () => {
+    const win = await browser.windows?.getCurrent();
+    if (!win?.height) return;
+    document.body.style.maxHeight = `${Math.min(600, Math.round(win.height * POPUP_HEIGHT_SHARE))}px`;
+};
+
 // --- Wiring ---
 
+fitHeight();
 refresh();
 checkPermission();
 
@@ -356,14 +367,14 @@ resetBtn.addEventListener("click", async () => {
         resetBtn.textContent = "Click again to reset";
         confirmTimer = setTimeout(() => {
             confirmTimer = undefined;
-            resetBtn.textContent = "Reset";
+            resetBtn.textContent = "Reset seen";
         }, CONFIRM_TIMEOUT_MS);
         return;
     }
 
     clearTimeout(confirmTimer);
     confirmTimer = undefined;
-    resetBtn.textContent = "Reset";
+    resetBtn.textContent = "Reset seen";
     // The background owns the stored state; it clears memory and storage together.
     await browser.runtime.sendMessage("resetRootCAs");
 });
