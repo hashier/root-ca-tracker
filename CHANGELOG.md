@@ -5,6 +5,8 @@ Each version is tagged in git (`v0.7` etc.).
 ## [Unreleased]
 
 ### Development
+- PNG icons in 32, 64 and 128 px in `store/` for the AMO listing, rendered
+  from `icons/icon.svg`.
 - `make build`, `make lint`, `make check` and `make roots` run everything in
   Docker. The image defaults to `node:22` and can be overridden in a
   git-ignored `local.mk`.
