@@ -43,6 +43,9 @@ const toggled = (set, key) =>
 
 const byName = ([, a], [, b]) => displayName(a.subject).localeCompare(displayName(b.subject));
 
+// Most used first; roots stored before request counting have none.
+const byRequests = (a, b) => (b[1].requests ?? 0) - (a[1].requests ?? 0) || byName(a, b);
+
 // Firefox writes "AB:CD:...", CCADB writes "ABCD...".
 const normalizeFingerprint = fp => fp.replaceAll(":", "").toUpperCase();
 
@@ -234,7 +237,7 @@ const renderListStatus = mozilla => {
 };
 
 const render = ({ roots, exceptions, mozilla }) => {
-    const entries = Object.entries(roots).sort(byName);
+    const entries = Object.entries(roots).sort(byRequests);
     const notBuiltIn = entries.filter(([, r]) => r.isBuiltInRoot === false);
     const builtIn = entries.filter(([, r]) => r.isBuiltInRoot !== false);
     const exceptionEntries = Object.entries(exceptions)

@@ -12,6 +12,8 @@ Each version is tagged in git (`v0.7` etc.).
 - Reset and Copy moved up next to Update list, so the list no longer loses
   room to a separate button bar. Reset is now "Reset seen" so it can't be
   mistaken for resetting the downloaded Mozilla list.
+- Seen roots are sorted by request count, most used first, instead of by
+  name. Copy still lists them by name.
 
 ### Development
 - README shows the icon and a screenshot of the popup.
