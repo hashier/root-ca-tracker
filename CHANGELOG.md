@@ -14,6 +14,10 @@ Each version is tagged in git (`v0.7` etc.).
 - "Built-in roots" is now "Seen built-in roots", so it can't be read as
   all built-in roots next to the "Never seen" list.
 
+### Development
+- New README screenshot showing the Stats section, and a second one of
+  the root list for the AMO listing.
+
 ## [1.0.1] - 2026-10-02
 
 ### Changed

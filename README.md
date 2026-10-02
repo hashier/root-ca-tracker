@@ -7,8 +7,10 @@ a handful. Knowing which ones is the first step to trimming the rest.
 
 ## What it shows
 
-<img src="store/screenshot-popup.png" alt="The popup listing seen root CAs, a certificate exception and per-root request counts" width="536">
+<img src="store/screenshot-popup.png" alt="The popup with the Stats section open, certificate exceptions and seen built-in roots with request counts" width="522">
 
+- **Stats**: total requests, how many roots cover 90% and 99% of them, the
+  share not trusted by default, and requests by CA operator.
 - **Seen roots** with request counts, first/last seen, expiry and recent hosts.
 - **Roots that aren't built into Firefox**, highlighted. These are installed by
   you or by software (corporate proxies, antivirus, dev tools) and can mean
