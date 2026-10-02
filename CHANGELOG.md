@@ -4,6 +4,8 @@ Each version is tagged in git (`v0.7` etc.).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-03
+
 ### Added
 - Collapsible Stats section at the top of the popup: total requests and
   since when, how many roots cover 90% and 99% of requests, the share of the
