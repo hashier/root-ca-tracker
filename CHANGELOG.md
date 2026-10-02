@@ -10,6 +10,10 @@ Each version is tagged in git (`v0.7` etc.).
   top 3 roots, roots under 1%, the share not trusted by default (roots not
   built in and certificate exceptions), and requests by CA operator.
 
+### Changed
+- "Built-in roots" is now "Seen built-in roots", so it can't be read as
+  all built-in roots next to the "Never seen" list.
+
 ## [1.0.1] - 2026-10-02
 
 ### Changed

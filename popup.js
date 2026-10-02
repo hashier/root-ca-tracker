@@ -371,7 +371,7 @@ const render = ({ roots, exceptions, mozilla }) => {
             "Sites that only load because an exception was accepted. " +
             "All exceptions: Settings → Certificates → View Certificates → Servers.",
             exceptionEntries.map(exceptionItem)),
-        section("Built-in roots", "", undefined,
+        section("Seen built-in roots", "", undefined,
             builtIn.map(entry => rootItem(entry, unlistedIn(entry)))),
         comparison ? neverSeenSection(comparison.neverSeen, mozilla.fetched) : undefined,
     ].filter(Boolean));
