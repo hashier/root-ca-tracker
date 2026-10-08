@@ -29,9 +29,9 @@ A copy of that list is bundled, so the button is optional.
 
 ## Install
 
-From [addons.mozilla.org](https://addons.mozilla.org/) (link follows once
-listed), or for development: `about:debugging` → This Firefox → Load Temporary
-Add-on → select `manifest.json`.
+From [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/root-ca-tracker/),
+or for development: `about:debugging` → This Firefox → Load Temporary Add-on →
+select `manifest.json`.
 
 Works in Firefox 140+ and Firefox-based browsers such as LibreWolf. It relies on
 Firefox-only APIs (`webRequest.getSecurityInfo`), so there is no Chrome version.
