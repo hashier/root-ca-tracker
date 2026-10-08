@@ -29,9 +29,11 @@ A copy of that list is bundled, so the button is optional.
 
 ## Install
 
-From [addons.mozilla.org](https://addons.mozilla.org/firefox/addon/root-ca-tracker/),
-or for development: `about:debugging` → This Firefox → Load Temporary Add-on →
-select `manifest.json`.
+1. Open [Root CA Tracker on addons.mozilla.org](https://addons.mozilla.org/firefox/addon/root-ca-tracker/) in Firefox.
+2. Click **Add to Firefox** and confirm.
+3. Browse as usual, then click the Root CA Tracker icon in the toolbar to see
+   which roots you used. If the icon is not there, you find it under the
+   Extensions button.
 
 Works in Firefox 140+ and Firefox-based browsers such as LibreWolf. It relies on
 Firefox-only APIs (`webRequest.getSecurityInfo`), so there is no Chrome version.
